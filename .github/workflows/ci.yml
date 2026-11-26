@@ -65,6 +65,6 @@ jobs:
       # Fails on known high/critical vulnerabilities in dependencies.
       - run: pnpm audit --audit-level=high
       # Scans the repo for accidentally committed secrets.
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
