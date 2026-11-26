@@ -38,7 +38,7 @@ jobs:
       VIDEO_TOKEN_SECRET: ci_only_video_secret_ci_only_video_secret_0000
       NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -55,7 +55,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
