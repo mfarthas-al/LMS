@@ -1,0 +1,53 @@
+# Local development services only. Not for production.
+# Start:  pnpm infra:up      Stop:  pnpm infra:down
+name: lms-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: lms
+      POSTGRES_PASSWORD: lms_dev_password
+      POSTGRES_DB: lms
+    ports: ['127.0.0.1:5432:5432']
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U lms']
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ['127.0.0.1:6379:6379']
+    volumes: [redisdata:/data]
+
+  # S3-compatible storage for PDFs, materials and payment slips.
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: lms_minio
+      MINIO_ROOT_PASSWORD: lms_minio_password
+    ports: ['127.0.0.1:9000:9000', '127.0.0.1:9001:9001']
+    volumes: [miniodata:/data]
+
+  # Creates the private bucket once MinIO is up. No public access policy is set.
+  minio-init:
+    image: minio/mc:latest
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 lms_minio lms_minio_password; do sleep 1; done;
+      mc mb --ignore-existing local/lms-private;
+      mc anonymous set none local/lms-private;
+      "
+
+  # Catches all outgoing email locally. UI: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    ports: ['127.0.0.1:1025:1025', '127.0.0.1:8025:8025']
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

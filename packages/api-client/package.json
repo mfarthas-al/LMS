@@ -1,0 +1,19 @@
+{
+  "name": "@lms/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed HTTP client used by web and mobile to call the API.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@lms/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

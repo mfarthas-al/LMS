@@ -1,0 +1,206 @@
+// DRAFT data model — will be refined once the detailed requirements arrive.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum AuthProvider {
+  EMAIL
+  GOOGLE
+}
+
+enum PaymentMethod {
+  ONLINE // PayHere, auto-approved on verified webhook
+  MANUAL // bank slip, approved by admin
+}
+
+enum PaymentStatus {
+  PENDING          // online checkout started
+  PENDING_REVIEW   // manual slip uploaded, waiting for admin
+  SUCCESS
+  FAILED
+  REJECTED
+  CANCELLED
+  REFUNDED
+}
+
+model User {
+  id            String       @id @default(cuid())
+  role          Role         @default(STUDENT)
+  name          String
+  email         String       @unique
+  emailVerified Boolean      @default(false)
+  passwordHash  String?      // null for Google-only accounts
+  googleId      String?      @unique
+  authProvider  AuthProvider @default(EMAIL)
+  phone         String?      @unique // E.164, e.g. +94771234567 — required before buying/watching
+  phoneVerified Boolean      @default(false)
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  sessions        Session[]
+  coursesTaught   Course[]      @relation("TeacherCourses")
+  enrollments     Enrollment[]
+  payments        Payment[]     @relation("StudentPayments")
+  reviewedPayments Payment[]    @relation("ReviewerPayments")
+  auditLogs       AuditLog[]
+}
+
+/// One row per signed-in device. Refresh tokens are stored hashed.
+model Session {
+  id               String    @id @default(cuid())
+  userId           String
+  refreshTokenHash String
+  deviceName       String?
+  ip               String?
+  userAgent        String?
+  lastUsedAt       DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  teacherId   String
+  title       String
+  description String?
+  grade       String?  // e.g. "Grade 11", "A/L 2027"
+  subject     String?
+  medium      String?  // Sinhala / Tamil / English
+  priceCents  Int      // LKR cents
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  teacher     User         @relation("TeacherCourses", fields: [teacherId], references: [id])
+  units       Unit[]
+  enrollments Enrollment[]
+  payments    Payment[]
+
+  @@index([teacherId])
+}
+
+model Unit {
+  id         String   @id @default(cuid())
+  courseId   String
+  title      String
+  position   Int
+  priceCents Int?     // optional: sell a single unit
+  createdAt  DateTime @default(now())
+
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons     Lesson[]
+  enrollments Enrollment[]
+  payments    Payment[]
+
+  @@index([courseId])
+}
+
+model Lesson {
+  id             String   @id @default(cuid())
+  unitId         String
+  title          String
+  position       Int
+  /// YouTube video ID only (not the full URL). Never sent to clients directly;
+  /// resolved through VideoAccessModule for enrolled students.
+  youtubeVideoId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  unit      Unit       @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  materials Material[]
+
+  @@index([unitId])
+}
+
+model Material {
+  id         String   @id @default(cuid())
+  lessonId   String
+  title      String
+  storageKey String   // key in the private bucket
+  mimeType   String
+  sizeBytes  Int
+  createdAt  DateTime @default(now())
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+}
+
+/// Grants access. Exactly one of courseId / unitId is set.
+model Enrollment {
+  id        String    @id @default(cuid())
+  studentId String
+  courseId  String?
+  unitId    String?
+  paymentId String?   @unique
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  student User     @relation(fields: [studentId], references: [id])
+  course  Course?  @relation(fields: [courseId], references: [id])
+  unit    Unit?    @relation(fields: [unitId], references: [id])
+  payment Payment? @relation(fields: [paymentId], references: [id])
+
+  @@index([studentId])
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  studentId         String
+  courseId          String?
+  unitId            String?
+  method            PaymentMethod
+  status            PaymentStatus
+  amountCents       Int
+  currency          String        @default("LKR")
+  provider          String?       // "payhere"
+  providerReference String?       @unique // gateway payment ID — unique to block double-processing
+  slipStorageKey    String?       // manual slip in the private bucket
+  reviewedById      String?
+  reviewedAt        DateTime?
+  rejectReason      String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  student    User        @relation("StudentPayments", fields: [studentId], references: [id])
+  reviewedBy User?       @relation("ReviewerPayments", fields: [reviewedById], references: [id])
+  course     Course?     @relation(fields: [courseId], references: [id])
+  unit       Unit?       @relation(fields: [unitId], references: [id])
+  enrollment Enrollment?
+
+  @@index([studentId])
+  @@index([status])
+}
+
+/// Append-only. Never updated or deleted by the application.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String   // e.g. "payment.approved", "auth.login", "user.role_changed"
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([action])
+}
