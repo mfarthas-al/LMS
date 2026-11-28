@@ -14,7 +14,7 @@ Live classes may come later. Hosting not decided.
 - **Mobile:** Expo React Native, Android only.
 - **Storage:** S3-compatible private bucket with signed URLs.
 - **Payments:** PayHere, behind a `PaymentProvider` interface.
-- **Auth:** email/password + Google; Sri Lankan phone number mandatory, verified via SMS OTP.
+- **Auth:** email/password (Google planned). No phone/SMS verification for now — SMS gateways cost money per message; can be added before launch.
 
 ## Consequences
 - Shared types/validation between API, web and mobile.

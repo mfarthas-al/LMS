@@ -1,3 +1,11 @@
+import { AccountPanel } from '@/components/auth/AccountPanel';
+import { WelcomeHeader } from '@/components/WelcomeHeader';
+
 export default function Page() {
-  return <h1 className="text-2xl font-semibold">Teacher dashboard</h1>;
+  return (
+    <>
+      <WelcomeHeader subtitle="Your courses and students will appear here." />
+      <AccountPanel />
+    </>
+  );
 }

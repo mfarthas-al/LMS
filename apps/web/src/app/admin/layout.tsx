@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
+import { AppShell } from '@/components/AppShell';
 
-// ADMIN only. Enforced by middleware.ts (UX) and the API (security).
+// ADMIN and SUPER_ADMIN. AppShell redirects in the browser; the API enforces the same rules on every call.
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  return <div className="min-h-screen">{children}</div>;
+  return <AppShell roles={['ADMIN', 'SUPER_ADMIN']}>{children}</AppShell>;
 }

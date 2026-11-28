@@ -33,6 +33,7 @@ pnpm install
 cp .env.example .env          # then fill in secrets
 pnpm infra:up                 # Postgres, Redis, MinIO, Mailpit
 pnpm db:migrate               # create tables
+pnpm db:seed                  # create the super admin from SUPER_ADMIN_* in .env
 pnpm dev                      # api + web
 pnpm dev:mobile               # Android (Expo)
 ```

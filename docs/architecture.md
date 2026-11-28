@@ -2,7 +2,7 @@
 
 ```
  Web (Next.js) ──┐                          ┌── PostgreSQL  (users, courses, payments, enrollments)
-                 ├── HTTPS ──► API (NestJS) ├── Redis       (OTP, rate limits, job queues)
+                 ├── HTTPS ──► API (NestJS) ├── Redis       (login lockouts, rate limits, job queues)
  Android (Expo) ─┘                          ├── S3 / MinIO  (PDFs, slips — private bucket)
                                             ├── PayHere     (online payments + webhook)
                                             └── SMS / Email providers
@@ -16,7 +16,6 @@ The API is the only thing that talks to the database and storage. Web and mobile
 | Module | Responsibility |
 |---|---|
 | `auth` | Email/password + Google sign-in, JWT access + rotating refresh tokens, device limits |
-| `otp` | SMS OTP to verify phone number (mandatory for every account) |
 | `users` | Profiles for all roles |
 | `courses` | Courses + units (grade / subject / medium) |
 | `lessons` | Lessons with YouTube reference + materials |
@@ -30,11 +29,28 @@ The API is the only thing that talks to the database and storage. Web and mobile
 | `audit` | Append-only log of sensitive actions |
 | `health` | Liveness/readiness check |
 
-## Sign-up flow
+## Accounts and roles
 
-1. Register with **email + password** or **Google**.
-2. Add a **Sri Lankan mobile number** → receive SMS OTP → verify.
-3. Only then can the student buy or watch anything (`PhoneVerifiedGuard`).
+| Role | Created by | Self sign-up |
+|---|---|---|
+| `SUPER_ADMIN` | `pnpm db:seed` only (from `SUPER_ADMIN_*` in `.env`) | No |
+| `ADMIN` | Super admin (`POST /admin/users`) | No |
+| `TEACHER` | Admin or super admin, or self sign-up | Yes |
+| `STUDENT` | Admin or super admin, or self sign-up | Yes |
+
+There is no approval or phone verification step: self-registered students and teachers can use
+their account straight away.
+
+**Self sign-up:** name, email, password, and Student or Teacher → dashboard.
+
+**Created by an admin:** the admin gets a one-time temporary password to hand over → the person signs
+in and must choose their own password → dashboard. Enforced by the global `AccountStatusGuard`
+(`PASSWORD_CHANGE_REQUIRED`); `/auth/me` and `/auth/change-password` opt out with
+`@AllowPendingPasswordChange()`.
+
+**Forgot password:** an admin issues a new temporary password from the Users page
+(`POST /admin/users/:id/reset-password`), which also signs the user out everywhere. Super admins can
+reset admins. A self-service email or SMS reset can be added later.
 
 ## Payment flows
 
@@ -46,7 +62,7 @@ in one DB transaction set `SUCCESS`, create `Enrollment`, write audit log. Rejec
 
 ## Web route areas (`apps/web/src/app`)
 
-`(public)` catalogue · `(auth)` login/register/verify-phone · `student/*` · `teacher/*` · `admin/*` · `payments/*` gateway return pages.
+`(public)` catalogue · `(auth)` login/register/verify-phone/forgot-password/change-password · `student/*` · `teacher/*` · `admin/*` · `payments/*` gateway return pages.
 
 ## Mobile (`apps/mobile/app`)
 

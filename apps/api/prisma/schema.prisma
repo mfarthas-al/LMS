@@ -9,10 +9,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// SUPER_ADMIN is created only by the seed script. SUPER_ADMIN creates ADMINs;
+/// ADMINs create TEACHERs and STUDENTs; TEACHERs and STUDENTs can also self-register.
 enum Role {
   STUDENT
   TEACHER
   ADMIN
+  SUPER_ADMIN
 }
 
 enum AuthProvider {
@@ -47,15 +50,25 @@ model User {
   phone         String?      @unique // E.164, e.g. +94771234567 — required before buying/watching
   phoneVerified Boolean      @default(false)
   isActive      Boolean      @default(true)
+  /// Set for accounts created by an admin with a temporary password.
+  mustChangePassword Boolean @default(false)
+  passwordChangedAt  DateTime?
+  lastLoginAt        DateTime?
+  /// Admin who created this account. Null for self-registered accounts and the seeded super admin.
+  createdById   String?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
+  createdBy       User?         @relation("CreatedUsers", fields: [createdById], references: [id], onDelete: SetNull)
+  createdUsers    User[]        @relation("CreatedUsers")
   sessions        Session[]
   coursesTaught   Course[]      @relation("TeacherCourses")
   enrollments     Enrollment[]
   payments        Payment[]     @relation("StudentPayments")
   reviewedPayments Payment[]    @relation("ReviewerPayments")
   auditLogs       AuditLog[]
+
+  @@index([role])
 }
 
 /// One row per signed-in device. Refresh tokens are stored hashed.
@@ -63,6 +76,10 @@ model Session {
   id               String    @id @default(cuid())
   userId           String
   refreshTokenHash String
+  /// Hash of the token this one replaced. A request with it shortly after rotation is a
+  /// harmless race (two tabs refreshing at once); later it means the token was stolen.
+  previousRefreshTokenHash String?
+  rotatedAt        DateTime?
   deviceName       String?
   ip               String?
   userAgent        String?

@@ -4,11 +4,12 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validateEnv } from './config/env.validation';
 import { DatabaseModule } from './database/database.module';
+import { RedisModule } from './database/redis.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { AccountStatusGuard } from './common/guards/account-status.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { OtpModule } from './modules/otp/otp.module';
 import { UsersModule } from './modules/users/users.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { LessonsModule } from './modules/lessons/lessons.module';
@@ -27,9 +28,9 @@ import { AuditModule } from './modules/audit/audit.module';
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', '../../.env'], validate: validateEnv }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     DatabaseModule,
+    RedisModule,
     HealthModule,
     AuthModule,
-    OtpModule,
     UsersModule,
     CoursesModule,
     LessonsModule,
@@ -43,9 +44,12 @@ import { AuditModule } from './modules/audit/audit.module';
     AuditModule,
   ],
   providers: [
-    // Secure by default: every route needs a valid JWT unless marked @Public().
+    // Secure by default, in this order:
+    // 1. rate limit  2. valid JWT + live session unless @Public()
+    // 3. temporary password changed  4. @Roles()
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: AccountStatusGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })

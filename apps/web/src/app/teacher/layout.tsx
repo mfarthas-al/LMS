@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
+import { AppShell } from '@/components/AppShell';
 
-// TEACHER only. Enforced by middleware.ts (UX) and the API (security).
+// TEACHER only. AppShell redirects in the browser; the API enforces the same rules on every call.
 export default function TeacherLayout({ children }: { children: ReactNode }) {
-  return <div className="min-h-screen">{children}</div>;
+  return <AppShell roles={['TEACHER']}>{children}</AppShell>;
 }

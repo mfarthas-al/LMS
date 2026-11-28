@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
@@ -10,14 +11,16 @@ async function bootstrap() {
 
   app.use(helmet());
   app.use(cookieParser());
+  const config = app.get(ConfigService);
   app.enableCors({
-    origin: (process.env.CORS_ORIGINS ?? '').split(',').filter(Boolean),
+    // Read via ConfigService: env validation drops unknown keys, so process.env may not have it.
+    origin: config.getOrThrow<string[]>('CORS_ORIGINS'),
     credentials: true,
   });
   app.setGlobalPrefix('api/v1');
   app.useGlobalFilters(new HttpExceptionFilter());
   app.enableShutdownHooks();
 
-  await app.listen(process.env.PORT ?? 4000);
+  await app.listen(config.getOrThrow<number>('PORT'));
 }
 bootstrap();
